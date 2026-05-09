@@ -533,7 +533,15 @@ def get_jiggle_settings(bone, static=False):
                 return STATIC_JIGGLE_SETTINGS
             bone = bone.parent
         return JiggleSettings(1.0,1.0,1.0,0.0,0.0,bone.jiggle_blend,0.0,1.0,0.1)
-    return JiggleSettings.from_bone(bone)
+
+    settings = JiggleSettings.from_bone(bone)
+    time_fac = bpy.context.scene.render.fps / 30
+    sq_time_fac = pow(time_fac, 2 / time_fac)
+    settings.angle_elasticity = pow(settings.angle_elasticity, sq_time_fac)
+    settings.length_elasticity = pow(settings.length_elasticity, sq_time_fac)
+    settings.root_elasticity = pow(settings.root_elasticity, sq_time_fac)
+    settings.elasticity_soften = pow(settings.elasticity_soften, sq_time_fac)
+    return settings
 
 class VirtualParticle:
     def read(self):
