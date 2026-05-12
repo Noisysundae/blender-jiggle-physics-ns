@@ -537,7 +537,7 @@ class VirtualParticle:
         local_radius = local_vec.length
 
         diff = local_working_position
-        empty_radius = 1.0
+        empty_radius = collider.empty_display_size
         if diff.length-local_radius > empty_radius:
             return position
         local_working_position = diff.normalized() * (empty_radius+local_radius)
