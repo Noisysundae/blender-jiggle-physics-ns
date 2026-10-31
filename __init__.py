@@ -151,151 +151,6 @@ def debug_frame_change_post(scene, depsgraph):
                             if modifier.show_viewport:
                                 _bake_debugger.log_modifier_evaluation(obj.name, modifier.name, modifier.type)
 
-
-# For debugging the NLA Bake operation
-import time
-from bpy.app.handlers import persistent
-
-class BakeDebugger:
-    def __init__(self):
-        self.log_entries = []
-        self.start_time = None
-        self.frame_times = {}
-        self.object_evaluations = {}
-        self.modifier_evaluations = {}
-        
-    def start_logging(self):
-        self.log_entries = []
-        self.start_time = time.time()
-        self.frame_times = {}
-        self.object_evaluations = {}
-        self.modifier_evaluations = {}
-        self.log("=== STARTING NLA BAKE DEBUG SESSION ===")
-        
-    def log(self, message):
-        timestamp = time.time() - self.start_time if self.start_time else 0
-        entry = f"[{timestamp:.3f}s] {message}"
-        self.log_entries.append(entry)
-        print(entry)  # Also print to console
-        
-    def log_frame_start(self, frame):
-        self.frame_start_time = time.time()
-        self.log(f"--- FRAME {frame} START ---")
-        
-    def log_frame_end(self, frame):
-        frame_duration = time.time() - self.frame_start_time
-        self.frame_times[frame] = frame_duration
-        self.log(f"--- FRAME {frame} END ({frame_duration:.3f}s) ---")
-        
-    def log_object_evaluation(self, obj_name, obj_type):
-        if obj_name not in self.object_evaluations:
-            self.object_evaluations[obj_name] = 0
-        self.object_evaluations[obj_name] += 1
-        self.log(f"EVALUATING OBJECT: {obj_name} ({obj_type})")
-        
-    def log_modifier_evaluation(self, obj_name, mod_name, mod_type):
-        key = f"{obj_name}.{mod_name}"
-        if key not in self.modifier_evaluations:
-            self.modifier_evaluations[key] = 0
-        self.modifier_evaluations[key] += 1
-        self.log(f"EVALUATING MODIFIER: {obj_name}.{mod_name} ({mod_type})")
-        
-    def generate_report(self):
-        total_time = time.time() - self.start_time if self.start_time else 0
-        
-        report = []
-        report.append("=== NLA BAKE PERFORMANCE REPORT ===")
-        report.append(f"Total bake time: {total_time:.3f}s")
-        report.append("")
-        
-        # Frame timing analysis
-        if self.frame_times:
-            report.append("FRAME TIMING:")
-            avg_frame_time = sum(self.frame_times.values()) / len(self.frame_times)
-            slowest_frame = max(self.frame_times.items(), key=lambda x: x[1])
-            fastest_frame = min(self.frame_times.items(), key=lambda x: x[1])
-            
-            report.append(f"  Average frame time: {avg_frame_time:.3f}s")
-            report.append(f"  Slowest frame: {slowest_frame[0]} ({slowest_frame[1]:.3f}s)")
-            report.append(f"  Fastest frame: {fastest_frame[0]} ({fastest_frame[1]:.3f}s)")
-            report.append("")
-        
-        # Object evaluation analysis
-        if self.object_evaluations:
-            report.append("MOST EVALUATED OBJECTS:")
-            sorted_objects = sorted(self.object_evaluations.items(), key=lambda x: x[1], reverse=True)
-            for obj_name, count in sorted_objects[:20]:  # Top 20
-                report.append(f"  {obj_name}: {count} evaluations")
-            report.append("")
-        
-        # Modifier evaluation analysis
-        if self.modifier_evaluations:
-            report.append("MOST EVALUATED MODIFIERS:")
-            sorted_modifiers = sorted(self.modifier_evaluations.items(), key=lambda x: x[1], reverse=True)
-            for mod_key, count in sorted_modifiers[:20]:  # Top 20
-                report.append(f"  {mod_key}: {count} evaluations")
-            report.append("")
-        
-        # Full log
-        report.append("FULL LOG:")
-        report.extend(self.log_entries)
-        
-        return "\n".join(report)
-    
-    def save_to_text_block(self, name="NLA_Bake_Debug_Log"):
-        report = self.generate_report()
-        
-        # Create or update text block in Blender
-        if name in bpy.data.texts:
-            text_block = bpy.data.texts[name]
-            text_block.clear()
-        else:
-            text_block = bpy.data.texts.new(name)
-        
-        text_block.write(report)
-        return text_block
-
-# Global debugger instance
-_bake_debugger = BakeDebugger()
-
-# Monkey patch some Blender functions to intercept evaluations
-original_object_update = None
-original_modifier_update = None
-
-def debug_object_update(self, context, depsgraph):
-    """Intercept object updates during baking"""
-    if _jiggle_globals.jiggle_baking:
-        _bake_debugger.log_object_evaluation(self.name, self.type)
-    
-    if original_object_update:
-        return original_object_update(self, context, depsgraph)
-
-@persistent
-def debug_frame_change_pre(scene, depsgraph):
-    """Log when frame changes during baking"""
-    if _jiggle_globals.jiggle_baking and scene.jiggle.bake_debug: # Check if Debug flag is ON
-        _bake_debugger.log_frame_start(scene.frame_current)
-
-@persistent  
-def debug_frame_change_post(scene, depsgraph):
-    """Log when frame processing completes during baking"""
-    if _jiggle_globals.jiggle_baking and scene.jiggle.bake_debug: # Check if Debug flag is ON
-        _bake_debugger.log_frame_end(scene.frame_current)
-        
-        # Log which objects were evaluated this frame
-        for obj in scene.objects:
-            # Check if object was recently evaluated by looking at its dependency graph
-            if hasattr(depsgraph, 'object_instances'):
-                for instance in depsgraph.object_instances:
-                    if instance.object == obj:
-                        _bake_debugger.log_object_evaluation(obj.name, obj.type)
-                        
-                        # Log modifiers on this object
-                        for modifier in obj.modifiers:
-                            if modifier.show_viewport:
-                                _bake_debugger.log_modifier_evaluation(obj.name, modifier.name, modifier.type)
-
-
 ZERO_VEC = Vector((0,0,0))
 IDENTITY_MAT = Matrix.Identity(4)
 IDENTITY_QUAT = Quaternion()
@@ -1099,7 +954,7 @@ def draw_callback():
     if jiggle.debug: _jiggle_globals.profiler.disable()
         
 def jiggle_simulate(scene, depsgraph, virtual_particles, framecount):
-    dt = 1.0 / scene.render.fps
+    dt = scene.render.fps_base / scene.render.fps
     dt2 = dt*dt
 
     # Get wind settings
@@ -1347,9 +1202,19 @@ class ANIM_OT_JiggleClearKeyframes(Operator):
         for bone in context.selected_pose_bones:
             for prop in ['jiggle_root_elasticity', 'jiggle_angle_elasticity', 'jiggle_length_elasticity', 'jiggle_elasticity_soften', 'jiggle_gravity', 'jiggle_blend', 'jiggle_air_drag', 'jiggle_friction', 'jiggle_collision_radius']:
                 data_path = f'pose.bones["{bone.name}"].{prop}'
-                fcurves_to_remove = [fc for fc in action.fcurves if fc.data_path == data_path]
-                for fc in fcurves_to_remove:
-                    action.fcurves.remove(fc)
+                if bpy.app.version < (5, 0, 0):
+                    fcurves_to_remove = [fc for fc in action.fcurves if fc.data_path == data_path]
+                    for fc in fcurves_to_remove:
+                        action.fcurves.remove(fc)
+                else:
+                    for layer in action.layers:
+                        for strip in layer.strips:
+                            if not hasattr(strip, "channelbags"):
+                                continue
+                            for channelbag in strip.channelbags:
+                                for fcurve in list(channelbag.fcurves):
+                                    if fcurve.data_path == data_path:
+                                        channelbag.fcurves.remove(fcurve)
         return {'FINISHED'}
 
 class SCENE_OT_JiggleProfile(Operator):
@@ -2120,24 +1985,9 @@ class JiggleObject(PropertyGroup):
         override={'LIBRARY_OVERRIDABLE'}
     )
 
-def install_presets():
-    try:
-        # Path to bundled presets
-        src_dir = os.path.join(os.path.dirname(__file__), "presets", "jigglebones")
-        # Blender's user preset directory
-        dst_dir = bpy.utils.user_resource('SCRIPTS', path="presets/jigglebones", create=True)
-
-        # Copy each preset if it doesn't exist already
-        for filename in os.listdir(src_dir):
-            src_file = os.path.join(src_dir, filename)
-            dst_file = os.path.join(dst_dir, filename)
-            if not os.path.exists(dst_file):
-                shutil.copyfile(src_file, dst_file)
-    except Exception as e:
-        print(f"Error installing default Jiggle Physics jigglebone presets: {e}")
-
 def register():
-    install_presets()
+    # Registers presets from the addon/presets folder, doesn't need /presets
+    bpy.utils.register_preset_path(os.path.dirname(__file__))
     # These properties are strictly animatable properties, as nested properties cannot be animated on pose bones.
     PoseBone.jiggle_angle_elasticity = FloatProperty(
         name = 'Angle Elasticity',
