@@ -1,14 +1,14 @@
 schema_version = "1.0.0"
 
-id = "jiggle_physics"
+id = "jiggle_physics_ns"
 version = "4.5.3"
-name = "Jiggle Physics"
+name = "Jiggle Physics NS"
 tagline = "Add stretchy jiggle physics to your Blender rigs"
-maintainer = "naelstrof <naelstrof@gmail.com>"
+maintainer = "naelstrof <naelstrof@gmail.com>, noisysundae <noisysundae@gmail.com>"
 type = "add-on"
 
 # # Optional: link to documentation, support, source files, etc
-website = "https://github.com/naelstrof/blender-jiggle-physics"
+website = "https://github.com/noisysundae/blender-jiggle-physics-ns"
 
 # # Optional: tag list defined by Blender and server, see:
 # # https://docs.blender.org/manual/en/dev/advanced/extensions/tags.html
